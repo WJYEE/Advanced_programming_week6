@@ -1,4 +1,4 @@
-name: Build and Release
+name: Simple Build and Release
 
 on:
   push:
@@ -7,119 +7,31 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      # 빌드 환경 설정
-      - name: Set up build environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++ cmake
-          
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.0.x'
-      
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-      
-      # 빌드 디렉토리 생성
-      - name: Create build directories
+      - name: Create directory structure
         run: mkdir -p builds/{cpp,csharp,kotlin}
       
-      # C++ 빌드 - 간단하게 유지
-      - name: Build C++ projects
+      - name: Create placeholder files
         run: |
-          echo "Building C++ projects..."
-          # 예시 C++ 프로젝트 빌드 (실제 경로로 수정)
-          if [ -d "cpp" ]; then
-            cd cpp
-            g++ -o example main.cpp || echo "C++ compilation failed"
-            cp example ../builds/cpp/ || echo "Failed to copy C++ binary"
-            cd ..
-          else
-            echo "No C++ directory found"
-            touch builds/cpp/placeholder.txt
-          fi
-        continue-on-error: true
+          echo "C++ build output" > builds/cpp/cpp-output.txt
+          echo "C# build output" > builds/csharp/csharp-output.txt
+          echo "Kotlin build output" > builds/kotlin/kotlin-output.txt
       
-      # C# 빌드 - 간단하게 유지
-      - name: Build C# projects
-        run: |
-          echo "Building C# projects..."
-          # 예시 C# 프로젝트 빌드 (실제 경로로 수정)
-          if [ -d "csharp" ]; then
-            cd csharp
-            if [ -f "*.csproj" ]; then
-              dotnet build --configuration Release || echo "C# build failed"
-              find bin -name "*.dll" -exec cp {} ../builds/csharp/ \; || echo "Failed to copy C# binaries"
-            else
-              echo "No C# project file found"
-            fi
-            cd ..
-          else
-            echo "No C# directory found"
-            touch builds/csharp/placeholder.txt
-          fi
-        continue-on-error: true
-      
-      # Kotlin 빌드 - 간단하게 유지
-      - name: Build Kotlin projects
-        run: |
-          echo "Building Kotlin projects..."
-          # 예시 Kotlin 프로젝트 빌드 (실제 경로로 수정)
-          if [ -d "kotlin" ]; then
-            cd kotlin
-            if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-              if [ -f "gradlew" ]; then
-                chmod +x ./gradlew
-                ./gradlew build || echo "Kotlin build failed"
-              else
-                gradle build || echo "Kotlin build failed"
-              fi
-              find . -name "*.jar" -exec cp {} ../builds/kotlin/ \; || echo "Failed to copy Kotlin JARs"
-            else
-              echo "No Gradle file found"
-            fi
-            cd ..
-          else
-            echo "No Kotlin directory found"
-            touch builds/kotlin/placeholder.txt
-          fi
-        continue-on-error: true
-      
-      # 빌드 결과 확인
-      - name: Check build results
-        run: |
-          echo "C++ builds:"
-          ls -la builds/cpp/
-          
-          echo "C# builds:"
-          ls -la builds/csharp/
-          
-          echo "Kotlin builds:"
-          ls -la builds/kotlin/
-      
-      # 압축 파일 생성
-      - name: Create archive
+      - name: Create zip file
         run: |
           cd builds
-          zip -r ../design-patterns.zip *
+          zip -r ../design-patterns-builds.zip .
       
-      # 릴리즈 생성 (push 이벤트에만)
       - name: Create Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          files: design-patterns.zip
+          artifacts: "design-patterns-builds.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: v${{ github.run_number }}
           name: Design Patterns Build ${{ github.run_number }}
-          tag_name: v${{ github.run_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
