@@ -1,4 +1,4 @@
-name: Simple Build and Release
+name: Simple Build
 
 on:
   push:
@@ -27,11 +27,7 @@ jobs:
           cd builds
           zip -r ../design-patterns-builds.zip .
       
-      - name: Create Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "design-patterns-builds.zip"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ github.run_number }}
-          name: Design Patterns Build ${{ github.run_number }}
+      - name: List created files
+        run: |
+          ls -la
+          ls -la builds/
