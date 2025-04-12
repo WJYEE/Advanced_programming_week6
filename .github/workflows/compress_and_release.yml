@@ -10,12 +10,15 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
       
-      # === 빌드 환경 설정 ===
-      - name: Set up C++ environment
-        run: sudo apt-get install -y g++ cmake
-      
+      # 빌드 환경 설정
+      - name: Set up build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ cmake
+          
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
@@ -25,93 +28,98 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: '11'
-          distribution: 'adopt'
+          distribution: 'temurin'
       
-      # === 빌드 출력 디렉토리 생성 ===
-      - name: Create build output directories
-        run: |
-          mkdir -p build-output/{cpp,csharp,kotlin}
+      # 빌드 디렉토리 생성
+      - name: Create build directories
+        run: mkdir -p builds/{cpp,csharp,kotlin}
       
-      # === C++ 프로젝트 빌드 ===
-      - name: Find and build C++ projects
+      # C++ 빌드 - 간단하게 유지
+      - name: Build C++ projects
         run: |
-          # 프로젝트 구조 확인
-          find . -name "CMakeLists.txt" -type f | while read -r cmake_file; do
-            dir=$(dirname "$cmake_file")
-            echo "Building C++ project in $dir"
-            mkdir -p "$dir/build"
-            cd "$dir/build"
-            cmake .. || echo "CMake configuration failed for $dir"
-            cmake --build . || echo "CMake build failed for $dir"
-            # 실행 파일 찾아서 복사 (에러 무시)
-            find . -type f -executable -not -path "*/\.*" -exec cp {} ../../build-output/cpp/ \; 2>/dev/null || true
-            cd - > /dev/null
-          done
+          echo "Building C++ projects..."
+          # 예시 C++ 프로젝트 빌드 (실제 경로로 수정)
+          if [ -d "cpp" ]; then
+            cd cpp
+            g++ -o example main.cpp || echo "C++ compilation failed"
+            cp example ../builds/cpp/ || echo "Failed to copy C++ binary"
+            cd ..
+          else
+            echo "No C++ directory found"
+            touch builds/cpp/placeholder.txt
+          fi
         continue-on-error: true
       
-      # === C# 프로젝트 빌드 ===
-      - name: Find and build C# projects
+      # C# 빌드 - 간단하게 유지
+      - name: Build C# projects
         run: |
-          # .csproj 파일 찾아서 빌드
-          find . -name "*.csproj" -type f | while read -r csproj_file; do
-            dir=$(dirname "$csproj_file")
-            echo "Building C# project: $csproj_file"
-            dotnet restore "$csproj_file" || echo "Restore failed for $csproj_file"
-            dotnet build "$csproj_file" --configuration Release || echo "Build failed for $csproj_file"
-            # 빌드 결과물 복사 (에러 무시)
-            find "$dir/bin" -name "*.dll" -o -name "*.exe" 2>/dev/null | xargs -I{} cp {} build-output/csharp/ 2>/dev/null || true
-          done
-        continue-on-error: true
-      
-      # === Kotlin 프로젝트 빌드 ===
-      - name: Find and build Kotlin projects
-        run: |
-          # build.gradle 또는 build.gradle.kts 파일 찾기
-          find . -name "build.gradle*" -type f | while read -r gradle_file; do
-            dir=$(dirname "$gradle_file")
-            echo "Building Kotlin project in $dir"
-            if [ -f "$dir/gradlew" ]; then
-              cd "$dir"
-              chmod +x ./gradlew
-              ./gradlew build || echo "Gradle build failed in $dir"
-              cd - > /dev/null
+          echo "Building C# projects..."
+          # 예시 C# 프로젝트 빌드 (실제 경로로 수정)
+          if [ -d "csharp" ]; then
+            cd csharp
+            if [ -f "*.csproj" ]; then
+              dotnet build --configuration Release || echo "C# build failed"
+              find bin -name "*.dll" -exec cp {} ../builds/csharp/ \; || echo "Failed to copy C# binaries"
             else
-              cd "$dir"
-              gradle build || echo "Gradle build failed in $dir"
-              cd - > /dev/null
+              echo "No C# project file found"
             fi
-            # JAR 파일 복사 (에러 무시)
-            find "$dir" -name "*.jar" -not -path "*/\.*" 2>/dev/null | xargs -I{} cp {} ../build-output/kotlin/ 2>/dev/null || true
-          done
+            cd ..
+          else
+            echo "No C# directory found"
+            touch builds/csharp/placeholder.txt
+          fi
         continue-on-error: true
       
-      # === 빌드 결과 확인 ===
-      - name: Check build outputs
+      # Kotlin 빌드 - 간단하게 유지
+      - name: Build Kotlin projects
         run: |
-          echo "=== C++ build outputs ==="
-          ls -la build-output/cpp || echo "No C++ builds found"
-          
-          echo "=== C# build outputs ==="
-          ls -la build-output/csharp || echo "No C# builds found"
-          
-          echo "=== Kotlin build outputs ==="
-          ls -la build-output/kotlin || echo "No Kotlin builds found"
+          echo "Building Kotlin projects..."
+          # 예시 Kotlin 프로젝트 빌드 (실제 경로로 수정)
+          if [ -d "kotlin" ]; then
+            cd kotlin
+            if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+              if [ -f "gradlew" ]; then
+                chmod +x ./gradlew
+                ./gradlew build || echo "Kotlin build failed"
+              else
+                gradle build || echo "Kotlin build failed"
+              fi
+              find . -name "*.jar" -exec cp {} ../builds/kotlin/ \; || echo "Failed to copy Kotlin JARs"
+            else
+              echo "No Gradle file found"
+            fi
+            cd ..
+          else
+            echo "No Kotlin directory found"
+            touch builds/kotlin/placeholder.txt
+          fi
+        continue-on-error: true
       
-      # === 압축 파일 생성 ===
+      # 빌드 결과 확인
+      - name: Check build results
+        run: |
+          echo "C++ builds:"
+          ls -la builds/cpp/
+          
+          echo "C# builds:"
+          ls -la builds/csharp/
+          
+          echo "Kotlin builds:"
+          ls -la builds/kotlin/
+      
+      # 압축 파일 생성
       - name: Create archive
         run: |
-          cd build-output
-          zip -r ../design-patterns-implementations.zip .
+          cd builds
+          zip -r ../design-patterns.zip *
       
-      # === 릴리즈 생성 (push 이벤트에만) ===
+      # 릴리즈 생성 (push 이벤트에만)
       - name: Create Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: softprops/action-gh-release@v1
         with:
-          files: design-patterns-implementations.zip
-          name: Design Patterns Build ${{ github.sha }}
-          tag_name: build-${{ github.run_number }}
-          draft: false
-          prerelease: false
+          files: design-patterns.zip
+          name: Design Patterns Build ${{ github.run_number }}
+          tag_name: v${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
