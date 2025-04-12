@@ -1,0 +1,79 @@
+name: Build and Release Projects
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install C++ build tools
+        run: sudo apt-get install -y build-essential
+      - name: Build C++ project
+        run: |
+          cd cpp_project
+          g++ -o cpp_project main.cpp
+      - name: Archive C++ build
+        uses: actions/upload-artifact@v2
+        with:
+          name: cpp_project
+          path: cpp_project
+
+  build-csharp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+      - name: Build C# project
+        run: |
+          cd csharp_project
+          dotnet build
+      - name: Archive C# build
+        uses: actions/upload-artifact@v2
+        with:
+          name: csharp_project
+          path: bin/
+
+  build-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Kotlin
+        run: sudo apt-get install -y default-jdk
+      - name: Build Kotlin project
+        run: |
+          cd kotlin_project
+          kotlinc main.kt -include-runtime -d kotlin_project.jar
+      - name: Archive Kotlin build
+        uses: actions/upload-artifact@v2
+        with:
+          name: kotlin_project
+          path: kotlin_project.jar
+
+  release:
+    needs: [build-cpp, build-csharp, build-kotlin]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Create zip of all projects
+        run: |
+          mkdir release
+          cp cpp_project release/
+          cp -r bin/ release/
+          cp kotlin_project.jar release/
+          zip -r release.zip release/
+      - name: Upload release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release.zip
