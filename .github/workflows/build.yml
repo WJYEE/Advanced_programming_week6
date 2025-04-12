@@ -69,11 +69,11 @@ jobs:
       - name: Create zip of all projects
         run: |
           mkdir release
-          cp cpp_project release/
-          cp -r bin/ release/
-          cp kotlin_project.jar release/
-          zip -r release.zip release/
+          cp cpp_project release/          # C++ 프로젝트 복사
+          cp -r bin/ release/              # C# 빌드 결과 복사
+          cp kotlin_project.jar release/   # Kotlin 빌드 결과 복사
+          zip -r release.zip release/      # 파일을 압축
       - name: Upload release
         uses: softprops/action-gh-release@v1
         with:
-          files: release.zip
+          files: release.zip  # 압축된 파일 업로드
