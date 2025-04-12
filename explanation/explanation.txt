@@ -1,0 +1,5 @@
+// assignment explanation
+eigen 과제는 Local에서 Conda 통해 Eigen 라이브러리 설치
+나머지 과제는 서버 내에서
+이 둘은 Push를 이용해 합침.
+이 txt는 pull request를 위한 샘플로 사용.(fix-version brunch통해)
