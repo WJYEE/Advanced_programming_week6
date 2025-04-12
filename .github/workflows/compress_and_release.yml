@@ -7,70 +7,109 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build:
+  build-cpp:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    # C++ 빌드 환경 설정
-    - name: Set up C++ environment
-      run: sudo apt-get install -y g++ cmake
-    
-    # C# 빌드 환경 설정
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '6.0.x'
-    
-    # Kotlin 빌드 환경 설정
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'adopt'
-    
-    # C++ 프로젝트 빌드
-    - name: Build C++ projects
-      run: |
-        mkdir -p builds/cpp
-        cd cpp  # C++ 프로젝트 디렉토리
-        cmake -B build
-        cmake --build build
-        cp build/*/executable* ../builds/cpp/  # 실행 파일 복사 (경로는 프로젝트에 맞게 조정 필요)
-    
-    # C# 프로젝트 빌드
-    - name: Build C# projects
-      run: |
-        mkdir -p builds/csharp
-        cd csharp  # C# 프로젝트 디렉토리
-        dotnet build --configuration Release
-        cp bin/Release/net6.0/* ../builds/csharp/  # 빌드 결과물 복사
-    
-    # Kotlin 프로젝트 빌드
-    - name: Build Kotlin projects
-      run: |
-        mkdir -p builds/kotlin
-        cd kotlin  # Kotlin 프로젝트 디렉토리
-        ./gradlew build
-        cp build/libs/*.jar ../builds/kotlin/  # JAR 파일 복사
-    
-    # 모든 빌드 결과물 압축
-    - name: Create archive
-      run: |
-        cd builds
-        zip -r design-patterns-implementations.zip cpp csharp kotlin
-    
-    # 릴리즈 생성 (push 이벤트에만 실행)
-    - name: Create Release
-      if: github.event_name == 'push'
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: builds/design-patterns-implementations.zip
-        name: Design Patterns Build ${{ github.sha }}
-        tag_name: build-${{ github.run_number }}
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3
+      
+      - name: Set up C++ environment
+        run: sudo apt-get install -y g++ cmake
+      
+      - name: Build C++ projects
+        run: |
+          mkdir -p builds/cpp
+          cd cpp  # C++ 프로젝트 디렉토리
+          cmake -B build
+          cmake --build build
+          cp build/*/executable* ../builds/cpp/  # 실행 파일 복사 (경로는 프로젝트에 맞게 조정 필요)
+      
+      - name: Upload C++ artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: cpp-builds
+          path: builds/cpp
+
+  build-csharp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+      
+      - name: Build C# projects
+        run: |
+          mkdir -p builds/csharp
+          cd csharp  # C# 프로젝트 디렉토리
+          dotnet build --configuration Release
+          cp bin/Release/net6.0/* ../builds/csharp/  # 빌드 결과물 복사
+      
+      - name: Upload C# artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: csharp-builds
+          path: builds/csharp
+
+  build-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      
+      - name: Build Kotlin projects
+        run: |
+          mkdir -p builds/kotlin
+          cd kotlin  # Kotlin 프로젝트 디렉토리
+          ./gradlew build
+          cp build/libs/*.jar ../builds/kotlin/  # JAR 파일 복사
+      
+      - name: Upload Kotlin artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: kotlin-builds
+          path: builds/kotlin
+
+  create-release:
+    needs: [build-cpp, build-csharp, build-kotlin]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download C++ artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cpp-builds
+          path: builds/cpp
+      
+      - name: Download C# artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: csharp-builds
+          path: builds/csharp
+      
+      - name: Download Kotlin artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: kotlin-builds
+          path: builds/kotlin
+      
+      - name: Create archive
+        run: |
+          zip -r design-patterns-implementations.zip builds/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: design-patterns-implementations.zip
+          name: Design Patterns Build ${{ github.sha }}
+          tag_name: build-${{ github.run_number }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
