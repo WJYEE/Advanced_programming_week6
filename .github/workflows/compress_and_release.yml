@@ -39,7 +39,7 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "Is it a push to main/master? ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}"
       
-      # 릴리즈 생성
+      # 릴리즈 생성.
       - name: Create Release
         if: github.event_name == 'push'  # 조건을 단순화
         uses: softprops/action-gh-release@v1
